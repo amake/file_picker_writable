@@ -5,9 +5,7 @@ import android.app.Activity.RESULT_OK
 import android.content.ActivityNotFoundException
 import android.content.ContentResolver
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.annotation.MainThread
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodChannel
@@ -227,7 +225,7 @@ class FilePickerWritableImpl(
         plugin.logDebug("Couldn't take persistable URI permission on $fileUri", e)
       }
 
-      val fileName = readFileInfo(fileUri, contentResolver)
+      val fileName = getDisplayName(fileUri, contentResolver)
 
       val tempFile =
         File.createTempFile(
@@ -251,33 +249,6 @@ class FilePickerWritableImpl(
         "uri" to fileUri.toString()
       )
     }
-  }
-
-  private suspend fun readFileInfo(
-    uri: Uri,
-    contentResolver: ContentResolver
-  ): String = withContext(Dispatchers.IO) {
-    // The query, because it only applies to a single document, returns only
-    // one row. There's no need to filter, sort, or select fields,
-    // because we want all fields for one document.
-    val cursor: Cursor? = contentResolver.query(
-      uri, null, null, null, null, null
-    )
-
-    cursor?.use {
-      if (!it.moveToFirst()) {
-        throw FilePickerException("Cursor returned empty while trying to read file info for $uri")
-      }
-
-      // Note it's called "Display Name". This is
-      // provider-specific, and might not necessarily be the file name.
-      val displayName: String =
-        it.getString(it.getColumnIndex(OpenableColumns.DISPLAY_NAME))
-      plugin.logDebug("Display Name: $displayName")
-      displayName
-
-    } ?: throw FilePickerException("Unable to load file info from $uri")
-
   }
 
   fun onDetachedFromActivity(binding: ActivityPluginBinding) {
