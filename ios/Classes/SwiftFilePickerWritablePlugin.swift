@@ -165,6 +165,12 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
             result(FlutterError(code: "InvalidArguments", message: "The supplied file \(fileUrl) is not a child of \(rootUrl)", details: nil))
             return
         }
+        let securityScope = rootUrl.startAccessingSecurityScopedResource()
+        defer {
+            if securityScope {
+                rootUrl.stopAccessingSecurityScopedResource()
+            }
+        }
         let dirUrl = fileUrl.deletingLastPathComponent()
         result([
             "identifier": try dirUrl.bookmarkData().base64EncodedString(),
