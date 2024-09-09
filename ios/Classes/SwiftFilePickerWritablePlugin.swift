@@ -187,35 +187,31 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         }
         let childUrl = url.appendingPathComponent(relativePath).standardized
         logDebug("Resolved to \(childUrl)")
-        var coordError: NSError? = nil
-        var bookmarkError: Error? = nil
-        var identifier: String? = nil
         DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                // Coordinate reading the item here because it might be a
-                // not-yet-downloaded file, in which case we can't get a bookmark for
-                // it--bookmarkData() fails with a "file doesn't exist" error
-                NSFileCoordinator().coordinate(readingItemAt: childUrl, error: &coordError) { url in
-                    do {
-                        identifier = try childUrl.bookmarkData().base64EncodedString()
-                    } catch let error {
-                        bookmarkError = error
-                    }
+            var coordError: NSError? = nil
+            var bookmarkError: Error? = nil
+            var identifier: String? = nil
+            // Coordinate reading the item here because it might be a
+            // not-yet-downloaded file, in which case we can't get a bookmark for
+            // it--bookmarkData() fails with a "file doesn't exist" error
+            NSFileCoordinator().coordinate(readingItemAt: childUrl, error: &coordError) { url in
+                do {
+                    identifier = try childUrl.bookmarkData().base64EncodedString()
+                } catch let error {
+                    bookmarkError = error
                 }
+            }
+            DispatchQueue.main.async { [self] in
                 if let error = coordError ?? bookmarkError {
-                    throw error
+                    result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
                 }
-                DispatchQueue.main.async { [self] in
-                    result([
-                        "identifier": identifier,
-                        "persistable": "true",
-                        "uri": childUrl.absoluteString,
-                        "fileName": childUrl.lastPathComponent,
-                        "isDirectory": "\(isDirectory(childUrl))",
-                    ])
-                }
-            } catch {
-                result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
+                result([
+                    "identifier": identifier,
+                    "persistable": "true",
+                    "uri": childUrl.absoluteString,
+                    "fileName": childUrl.lastPathComponent,
+                    "isDirectory": "\(isDirectory(childUrl))",
+                ])
             }
         }
     }
