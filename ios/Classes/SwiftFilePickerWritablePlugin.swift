@@ -127,23 +127,25 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         var isStale: Bool = false
         let url = try URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale)
         logDebug("url: \(url) / isStale: \(isStale)");
-        let securityScope = url.startAccessingSecurityScopedResource()
-        defer {
-            if securityScope {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
-        if !securityScope {
-            logDebug("Warning: startAccessingSecurityScopedResource is false for \(url).")
-        }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
+            let securityScope = url.startAccessingSecurityScopedResource()
+            defer {
+                if securityScope {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            if !securityScope {
+                logDebug("Warning: startAccessingSecurityScopedResource is false for \(url).")
+            }
             do {
                 let copiedFile = try _copyToTempDirectory(url: url)
                 DispatchQueue.main.async { [self] in
                     result(_fileInfoResult(tempFile: copiedFile, originalURL: url, bookmark: bookmark))
                 }
             } catch {
-                result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
+                DispatchQueue.main.async {
+                    result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
+                }
             }
         }
     }
@@ -559,7 +561,9 @@ extension SwiftFilePickerWritablePlugin: FlutterStreamHandler {
 
     private func sendEvent(event: [String: String]) {
         if let _eventSink = _eventSink {
-            _eventSink(event)
+            DispatchQueue.main.async {
+                _eventSink(event)
+            }
         } else {
             _eventQueue.append(event)
         }
