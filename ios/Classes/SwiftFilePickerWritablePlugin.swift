@@ -407,7 +407,9 @@ extension SwiftFilePickerWritablePlugin: FlutterStreamHandler {
 
     private func sendEvent(event: [String: String]) {
         if let _eventSink = _eventSink {
-            _eventSink(event)
+            DispatchQueue.main.async {
+                _eventSink(event)
+            }
         } else {
             _eventQueue.append(event)
         }
