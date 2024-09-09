@@ -120,7 +120,9 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
                     result(_fileInfoResult(tempFile: copiedFile, originalURL: url, bookmark: bookmark))
                 }
             } catch {
-                result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
+                DispatchQueue.main.async {
+                    result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
+                }
             }
         }
     }
