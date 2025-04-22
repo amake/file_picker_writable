@@ -312,18 +312,19 @@ extension SwiftFilePickerWritablePlugin: FlutterApplicationLifeCycleDelegate {
         return _handle(url: url, persistable: false)
     }
     
-    public func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]) -> Void) -> Bool {
-        // (handle universal links)
-        // Get URL components from the incoming user activity
-        guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
-            let incomingURL = userActivity.webpageURL else {
-                logDebug("Unsupported user activity. \(userActivity)")
-                return false
-        }
-        logDebug("continue userActivity webpageURL: \(incomingURL)")
-        // TODO: Confirm that persistable should be true here
-        return _handle(url: incomingURL, persistable: true)
-    }
+    // This plugin should NOT handle this kind of link
+    // public func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]) -> Void) -> Bool {
+    //     // (handle universal links)
+    //     // Get URL components from the incoming user activity
+    //     guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+    //         let incomingURL = userActivity.webpageURL else {
+    //             logDebug("Unsupported user activity. \(userActivity)")
+    //             return false
+    //     }
+    //     logDebug("continue userActivity webpageURL: \(incomingURL)")
+    //     // TODO: Confirm that persistable should be true here
+    //     return _handle(url: incomingURL, persistable: true)
+    // }
     
     private func _handle(url: URL, persistable: Bool) -> Bool {
 //        if (!url.isFileURL) {
