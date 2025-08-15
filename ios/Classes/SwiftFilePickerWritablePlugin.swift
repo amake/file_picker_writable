@@ -7,9 +7,28 @@ enum FilePickerError: Error {
     case invalidArguments(message: String)
 }
 
+fileprivate func getRootViewController() -> UIViewController {
+    var vc: UIViewController?
+    if #available(iOS 13, *) {
+        for scene in UIApplication.shared.connectedScenes {
+            guard let scene = scene as? UIWindowScene else { continue }
+            for window in scene.windows {
+                guard window.isKeyWindow else { continue }
+                vc = window.rootViewController
+            }
+        }
+    } else {
+        vc = UIApplication.shared.keyWindow?.rootViewController
+    }
+    guard let vc = vc else {
+        NSLog("PANIC - no view controller available.")
+        fatalError("No viewController available.")
+    }
+    return vc
+}
+
 public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
 
-    private let _viewController: UIViewController
     private let _channel: FlutterMethodChannel
     private var _filePickerResult: FlutterResult?
     private var _filePickerPath: String?
@@ -19,17 +38,12 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     private var _eventQueue: [[String: String]] = []
 
     public static func register(with registrar: FlutterPluginRegistrar) {
-        guard let vc = UIApplication.shared.delegate?.window??.rootViewController else {
-            NSLog("PANIC - unable to initialize plugin, no view controller available.")
-            fatalError("No viewController available.")
-        }
-        _ = SwiftFilePickerWritablePlugin(viewController: vc, registrar: registrar)
+        _ = SwiftFilePickerWritablePlugin(registrar: registrar)
     }
 
-    public init(viewController: UIViewController, registrar: FlutterPluginRegistrar) {
+    public init(registrar: FlutterPluginRegistrar) {
 
         let channel = FlutterMethodChannel(name: "design.codeux.file_picker_writable", binaryMessenger: registrar.messenger())
-        _viewController = viewController;
         _channel = channel
 
         super.init()
@@ -165,7 +179,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        _viewController.present(ctrl, animated: true, completion: nil)
+        getRootViewController().present(ctrl, animated: true, completion: nil)
     }
 
     func openFilePicker(result: @escaping FlutterResult) {
@@ -178,7 +192,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeItem as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        _viewController.present(ctrl, animated: true, completion: nil)
+        getRootViewController().present(ctrl, animated: true, completion: nil)
     }
 
     private func _copyToTempDirectory(url: URL) throws -> URL {
