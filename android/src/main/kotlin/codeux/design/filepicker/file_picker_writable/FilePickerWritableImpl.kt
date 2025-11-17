@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Activity.RESULT_OK
 import android.content.ActivityNotFoundException
 import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -19,8 +20,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-interface ActivityProvider : CoroutineScope {
+interface ContextProvider : CoroutineScope {
   val activity: Activity?
+
+  val applicationContext: Context?
+
   fun logDebug(message: String, e: Throwable? = null)
   @MainThread
   fun openFile(fileInfo: Map<String, String>)
@@ -29,7 +33,7 @@ interface ActivityProvider : CoroutineScope {
 }
 
 class FilePickerWritableImpl(
-  private val plugin: ActivityProvider
+  private val plugin: ContextProvider
 ) : PluginRegistry.ActivityResultListener, PluginRegistry.NewIntentListener {
 
   companion object {
@@ -81,7 +85,7 @@ class FilePickerWritableImpl(
         if (initialDirUri != null) {
           try {
             val parsedUri = Uri.parse(initialDirUri).let {
-              val context = requireActivity().applicationContext
+              val context = requireContext().applicationContext
               if (DocumentsContract.isDocumentUri(context, it)) {
                 it
               } else {
@@ -232,8 +236,8 @@ class FilePickerWritableImpl(
     fileUri: Uri,
     initialFileContent: File
   ) {
-    val activity = requireActivity()
-    val contentResolver = activity.applicationContext.contentResolver
+    val context = requireContext()
+    val contentResolver = context.applicationContext.contentResolver
     val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
       Intent.FLAG_GRANT_WRITE_URI_PERMISSION
     contentResolver.takePersistableUriPermission(fileUri, takeFlags)
@@ -275,7 +279,7 @@ class FilePickerWritableImpl(
     rootUri: String,
     fileUri: String
   ) {
-    val activity = requireActivity()
+    val context = requireContext()
 
     val root = Uri.parse(rootUri)
     val leaf = Uri.parse(fileUri)
@@ -284,7 +288,7 @@ class FilePickerWritableImpl(
       DocumentsContract.getDocumentId(leaf)
     )
 
-    if (!fileExists(leafUnderRoot, activity.applicationContext.contentResolver)) {
+    if (!fileExists(leafUnderRoot, context.applicationContext.contentResolver)) {
       result.error(
         "InvalidArguments",
         "The supplied fileUri $fileUri is not a child of $rootUri",
@@ -294,10 +298,10 @@ class FilePickerWritableImpl(
     }
 
     val ret = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      getParent(leafUnderRoot, activity.applicationContext)
+      getParent(leafUnderRoot, context.applicationContext)
     } else {
       null
-    } ?: findParent(root, leaf, activity.applicationContext)
+    } ?: findParent(root, leaf, context.applicationContext)
 
 
     result.success(mapOf(
@@ -314,12 +318,12 @@ class FilePickerWritableImpl(
     parentIdentifier: String,
     relativePath: String
   ) {
-    val activity = requireActivity()
+    val context = requireContext()
 
-    val resolvedUri = resolveRelativePath(Uri.parse(parentIdentifier), relativePath, activity.applicationContext)
+    val resolvedUri = resolveRelativePath(Uri.parse(parentIdentifier), relativePath, context.applicationContext)
     if (resolvedUri != null) {
-      val displayName = getDisplayName(resolvedUri, activity.applicationContext.contentResolver)
-      val isDirectory = isDirectory(resolvedUri, activity.applicationContext.contentResolver)
+      val displayName = getDisplayName(resolvedUri, context.applicationContext.contentResolver)
+      val isDirectory = isDirectory(resolvedUri, context.applicationContext.contentResolver)
       result.success(mapOf(
         "identifier" to resolvedUri.toString(),
         "persistable" to "true",
@@ -345,9 +349,9 @@ class FilePickerWritableImpl(
 
   @MainThread
   private suspend fun copyContentUriAndReturnFileInfo(fileUri: Uri): Map<String, String> {
-    val activity = requireActivity()
+    val context = requireContext()
 
-    val contentResolver = activity.applicationContext.contentResolver
+    val contentResolver = context.applicationContext.contentResolver
 
     return withContext(Dispatchers.IO) {
       var persistable = false
@@ -367,7 +371,7 @@ class FilePickerWritableImpl(
           // use a maximum of 20 characters.
           // It's just a temp file name so does not really matter.
           fileName.take(20),
-          null, activity.cacheDir
+          null, context.cacheDir
         )
       plugin.logDebug("Copy file $fileUri to $tempFile")
       contentResolver.openInputStream(fileUri).use { input ->
@@ -389,9 +393,9 @@ class FilePickerWritableImpl(
   @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
   @MainThread
   private suspend fun getDirectoryInfo(directoryUri: Uri): Map<String, String> {
-    val activity = requireActivity()
+    val context = requireContext()
 
-    val contentResolver = activity.applicationContext.contentResolver
+    val contentResolver = context.applicationContext.contentResolver
 
     return withContext(Dispatchers.IO) {
       var persistable = false
@@ -437,8 +441,8 @@ class FilePickerWritableImpl(
       throw FilePickerException("File at source not found. $file")
     }
     val fileUri = Uri.parse(identifier)
-    val activity = requireActivity()
-    val contentResolver = activity.contentResolver
+    val context = requireContext()
+    val contentResolver = context.contentResolver
     withContext(Dispatchers.IO) {
       // with Android 10 and later, use wt
       // https://issuetracker.google.com/issues/135714729?pli=1
@@ -455,16 +459,16 @@ class FilePickerWritableImpl(
   }
 
   fun disposeIdentifier(identifier: String) {
-    val activity = requireActivity()
-    val contentResolver = activity.applicationContext.contentResolver
+    val context = requireContext()
+    val contentResolver = context.applicationContext.contentResolver
     val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
       Intent.FLAG_GRANT_WRITE_URI_PERMISSION
     contentResolver.releasePersistableUriPermission(Uri.parse(identifier), takeFlags)
   }
 
   fun disposeAllIdentifiers() {
-    val activity = requireActivity()
-    val contentResolver = activity.applicationContext.contentResolver
+    val context = requireContext()
+    val contentResolver = context.applicationContext.contentResolver
     val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
       Intent.FLAG_GRANT_WRITE_URI_PERMISSION
     for (permission in contentResolver.persistedUriPermissions) {
@@ -475,6 +479,9 @@ class FilePickerWritableImpl(
 
   private fun requireActivity() = (plugin.activity
     ?: throw FilePickerException("Illegal state, expected activity to be there."))
+
+  private fun requireContext() = (plugin.activity ?: plugin.applicationContext
+    ?: throw FilePickerException("Illegal state, expected application context or activity to be there."))
 
   private val CONTENT_PROVIDER_SCHEMES = setOf(
     ContentResolver.SCHEME_CONTENT,
