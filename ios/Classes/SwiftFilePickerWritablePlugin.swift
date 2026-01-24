@@ -5,11 +5,19 @@ import MobileCoreServices
 enum FilePickerError: Error {
     case readError(message: String)
     case invalidArguments(message: String)
+    case noViewController
 }
 
 public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
 
-    private let _viewController: UIViewController
+    private var _viewController: UIViewController {
+        get throws {
+            guard let vc = UIApplication.shared.delegate?.window??.rootViewController else {
+                throw FilePickerError.noViewController
+            }
+            return vc
+        }
+    }
     private let _channel: FlutterMethodChannel
     private var _filePickerResult: FlutterResult?
     private var _filePickerPath: String?
@@ -19,17 +27,12 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     private var _eventQueue: [[String: String]] = []
 
     public static func register(with registrar: FlutterPluginRegistrar) {
-        guard let vc = UIApplication.shared.delegate?.window??.rootViewController else {
-            NSLog("PANIC - unable to initialize plugin, no view controller available.")
-            fatalError("No viewController available.")
-        }
-        _ = SwiftFilePickerWritablePlugin(viewController: vc, registrar: registrar)
+        _ = SwiftFilePickerWritablePlugin(registrar: registrar)
     }
 
-    public init(viewController: UIViewController, registrar: FlutterPluginRegistrar) {
+    public init(registrar: FlutterPluginRegistrar) {
 
         let channel = FlutterMethodChannel(name: "design.codeux.file_picker_writable", binaryMessenger: registrar.messenger())
-        _viewController = viewController;
         _channel = channel
 
         super.init()
@@ -61,14 +64,14 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
                 }
                 result(true)
             case "openFilePicker":
-                openFilePicker(result: result)
+                try openFilePicker(result: result)
             case "openFilePickerForCreate":
                 guard
                     let args = call.arguments as? Dictionary<String, Any>,
                     let path = args["path"] as? String else {
                         throw FilePickerError.invalidArguments(message: "Expected 'args'")
                 }
-                openFilePickerForCreate(path: path, result: result)
+                try openFilePickerForCreate(path: path, result: result)
             case "readFileWithIdentifier":
                 guard
                     let args = call.arguments as? Dictionary<String, Any>,
@@ -155,7 +158,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         try data.write(to: destination, options: .atomicWrite)
     }
     
-    func openFilePickerForCreate(path: String, result: @escaping FlutterResult) {
+    func openFilePickerForCreate(path: String, result: @escaping FlutterResult) throws {
         if (_filePickerResult != nil) {
             result(FlutterError(code: "DuplicatedCall", message: "Only one file open call at a time.", details: nil))
             return
@@ -165,10 +168,10 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        _viewController.present(ctrl, animated: true, completion: nil)
+        try _viewController.present(ctrl, animated: true, completion: nil)
     }
 
-    func openFilePicker(result: @escaping FlutterResult) {
+    func openFilePicker(result: @escaping FlutterResult) throws {
         if (_filePickerResult != nil) {
             result(FlutterError(code: "DuplicatedCall", message: "Only one file open call at a time.", details: nil))
             return
@@ -178,7 +181,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeItem as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        _viewController.present(ctrl, animated: true, completion: nil)
+        try _viewController.present(ctrl, animated: true, completion: nil)
     }
 
     private func _copyToTempDirectory(url: URL) throws -> URL {

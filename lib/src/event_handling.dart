@@ -68,7 +68,7 @@ class FilePickerEventHandlerLambda extends FilePickerEventHandler {
       errorEventHandler?.call(errorEvent) ?? Future.value(false);
 
   @override
-  bool operator ==(dynamic other) =>
+  bool operator ==(Object other) =>
       other is FilePickerEventHandlerLambda &&
       // ignore: deprecated_member_use_from_same_package
       fileInfoHandler == other.fileInfoHandler &&
