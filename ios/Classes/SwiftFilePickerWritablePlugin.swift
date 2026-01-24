@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
-import MobileCoreServices
+//import MobileCoreServices
+import UniformTypeIdentifiers
 
 enum FilePickerError: Error {
     case readError(message: String)
@@ -165,7 +166,8 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         }
         _filePickerResult = result
         _filePickerPath = path
-        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
+        let ctrl = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+//        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
         try _viewController.present(ctrl, animated: true, completion: nil)
@@ -178,7 +180,8 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         }
         _filePickerResult = result
         _filePickerPath = nil
-        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeItem as String], in: UIDocumentPickerMode.open)
+        let ctrl = UIDocumentPickerViewController(forOpeningContentTypes: [.item])
+      //        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeItem as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
         try _viewController.present(ctrl, animated: true, completion: nil)
