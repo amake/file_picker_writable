@@ -57,6 +57,18 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     NSAppleEventManager.shared().removeEventHandler(forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
     #endif
   }
+  
+  #if os(macOS)
+  @objc
+  private func handleEvent(_ event: NSAppleEventDescriptor, with replyEvent: NSAppleEventDescriptor) {
+      print("Got event. \(event)")
+      guard let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue else { return }
+      guard let url = URL(string: urlString) else { return }
+      print(url)
+      channel.invokeMethod("handleUri", arguments: url.absoluteString)
+  }
+  #endif
+
     
   private func logDebug(_ message: String) {
     print("DEBUG", "FilePickerWritablePlugin:", message)
