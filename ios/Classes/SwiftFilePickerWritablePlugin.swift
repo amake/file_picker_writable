@@ -1,6 +1,10 @@
+#if os(iOS)
 import Flutter
 import UIKit
-//import MobileCoreServices
+#elseif os(macOS)
+import Cocoa
+import FlutterMacOS
+#endif
 import UniformTypeIdentifiers
 
 enum FilePickerError: Error {
@@ -43,7 +47,29 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
 
     let eventChannel = FlutterEventChannel(name: "design.codeux.file_picker_writable/events", binaryMessenger: registrar.messenger())
     eventChannel.setStreamHandler(self)
+
+    #if os(macOS)
+    NSAppleEventManager.shared().setEventHandler(self, andSelector: #selector(handleEvent(_:with:)), forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    #endif
   }
+
+  deinit {
+    #if os(macOS)
+    NSAppleEventManager.shared().removeEventHandler(forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    #endif
+  }
+
+  #if os(macOS)
+  @objc
+  private func handleEvent(_ event: NSAppleEventDescriptor, with replyEvent: NSAppleEventDescriptor) {
+    print("Got event. \(event)")
+    guard let urlString = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue else { return }
+    guard let url = URL(string: urlString) else { return }
+    print(url)
+    channel.invokeMethod("handleUri", arguments: url.absoluteString)
+  }
+  #endif
+
 
   private func logDebug(_ message: String) {
     print("DEBUG", "FilePickerWritablePlugin:", message)
