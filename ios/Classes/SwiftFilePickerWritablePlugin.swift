@@ -5,29 +5,18 @@ import MobileCoreServices
 enum FilePickerError: Error {
     case readError(message: String)
     case invalidArguments(message: String)
-}
-
-fileprivate func getRootViewController() -> UIViewController {
-    var vc: UIViewController?
-    if #available(iOS 13, *) {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let scene = scene as? UIWindowScene else { continue }
-            for window in scene.windows {
-                guard window.isKeyWindow else { continue }
-                vc = window.rootViewController
-            }
-        }
-    } else {
-        vc = UIApplication.shared.keyWindow?.rootViewController
-    }
-    guard let vc = vc else {
-        NSLog("PANIC - no view controller available.")
-        fatalError("No viewController available.")
-    }
-    return vc
+    case noViewController
 }
 
 public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
+    private var _viewController: UIViewController {
+      get throws {
+        guard let vc = UIApplication.shared.delegate?.window??.rootViewController else {
+          throw FilePickerError.noViewController
+        }
+        return vc
+      }
+    }
 
     private let _channel: FlutterMethodChannel
     private var _filePickerResult: FlutterResult?
@@ -75,21 +64,21 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
                 }
                 result(true)
             case "openFilePicker":
-                openFilePicker(result: result)
+                try openFilePicker(result: result)
             case "openFilePickerForCreate":
                 guard
                     let args = call.arguments as? Dictionary<String, Any>,
                     let path = args["path"] as? String else {
                         throw FilePickerError.invalidArguments(message: "Expected 'args'")
                 }
-                openFilePickerForCreate(path: path, result: result)
+                try openFilePickerForCreate(path: path, result: result)
             case "isDirectoryAccessSupported":
                 result(true)
             case "openDirectoryPicker":
                 guard let args = call.arguments as? Dictionary<String, Any> else {
                     throw FilePickerError.invalidArguments(message: "Expected 'args'")
                 }
-                openDirectoryPicker(result: result, initialDirUrl: args["initialDirUri"] as? String)
+                try openDirectoryPicker(result: result, initialDirUrl: args["initialDirUri"] as? String)
             case "readFileWithIdentifier":
                 guard
                     let args = call.arguments as? Dictionary<String, Any>,
@@ -270,7 +259,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         try data.write(to: destination, options: .atomicWrite)
     }
 
-    func openFilePickerForCreate(path: String, result: @escaping FlutterResult) {
+    func openFilePickerForCreate(path: String, result: @escaping FlutterResult) throws {
         if (_filePickerResult != nil) {
             result(FlutterError(code: "DuplicatedCall", message: "Only one file open call at a time.", details: nil))
             return
@@ -280,10 +269,10 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        getRootViewController().present(ctrl, animated: true, completion: nil)
+        try _viewController.present(ctrl, animated: true, completion: nil)
     }
 
-    func openFilePicker(result: @escaping FlutterResult) {
+    func openFilePicker(result: @escaping FlutterResult) throws {
         if (_filePickerResult != nil) {
             result(FlutterError(code: "DuplicatedCall", message: "Only one file open call at a time.", details: nil))
             return
@@ -293,10 +282,10 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeItem as String], in: UIDocumentPickerMode.open)
         ctrl.delegate = self
         ctrl.modalPresentationStyle = .currentContext
-        getRootViewController().present(ctrl, animated: true, completion: nil)
+        try _viewController.present(ctrl, animated: true, completion: nil)
     }
 
-    func openDirectoryPicker(result: @escaping FlutterResult, initialDirUrl: String?) {
+    func openDirectoryPicker(result: @escaping FlutterResult, initialDirUrl: String?) throws {
         if (_filePickerResult != nil) {
             result(FlutterError(code: "DuplicatedCall", message: "Only one file open call at a time.", details: nil))
             return
@@ -311,7 +300,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
             }
         }
         ctrl.modalPresentationStyle = .currentContext
-        getRootViewController().present(ctrl, animated: true, completion: nil)
+        try _viewController.present(ctrl, animated: true, completion: nil)
     }
 
     private func _copyToTempDirectory(url: URL) throws -> URL {
