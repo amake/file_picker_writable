@@ -28,7 +28,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
   private var _filePickerPath: String?
   private var isInitialized = false
   private var _initOpen: (url: URL, persistable: Bool)?
-  private var _eventSink: FlutterEventSink? = nil
+  private var _eventSink: FlutterEventSink?
   private var _eventQueue: [[String: String]] = []
 
   public static func register(with registrar: FlutterPluginRegistrar) {
@@ -36,7 +36,6 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
   }
 
   public init(registrar: FlutterPluginRegistrar) {
-
     let channel = FlutterMethodChannel(name: "design.codeux.file_picker_writable", binaryMessenger: registrar.messenger())
     _channel = channel
 
@@ -75,6 +74,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     print("DEBUG", "FilePickerWritablePlugin:", message)
     sendEvent(event: ["type": "log", "level": "DEBUG", "message": message])
   }
+
   private func logError(_ message: String) {
     print("ERROR", "FilePickerWritablePlugin:", message)
     sendEvent(event: ["type": "log", "level": "ERROR", "message": message])
@@ -135,8 +135,8 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
         try resolveRelativePath(directoryIdentifier: directoryIdentifier, relativePath: relativePath, result: result)
       case "writeFileWithIdentifier":
         guard let args = call.arguments as? [String: Any],
-          let identifier = args["identifier"] as? String,
-          let path = args["path"] as? String
+              let identifier = args["identifier"] as? String,
+              let path = args["path"] as? String
         else {
           throw FilePickerError.invalidArguments(message: "Expected 'identifier' and 'path' arguments.")
         }
@@ -149,7 +149,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
       }
     } catch let error as FilePickerError {
       result(FlutterError(code: "FilePickerError", message: "\(error)", details: nil))
-    } catch let error {
+    } catch {
       result(FlutterError(code: "UnknownError", message: "\(error)", details: nil))
     }
   }
@@ -159,7 +159,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
       result(FlutterError(code: "InvalidDataError", message: "Unable to decode bookmark.", details: nil))
       return
     }
-    var isStale: Bool = false
+    var isStale = false
     let url = try URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale)
     logDebug("url: \(url) / isStale: \(isStale)")
     DispatchQueue.global(qos: .userInitiated).async { [self] in
@@ -257,7 +257,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     guard let bookmark = Data(base64Encoded: identifier) else {
       throw FilePickerError.invalidArguments(message: "Unable to decode bookmark/identifier.")
     }
-    var isStale: Bool = false
+    var isStale = false
     let url = try URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &isStale)
     logDebug("url: \(url) / isStale: \(isStale)")
     try _writeFile(path: path, destination: url)
@@ -272,12 +272,12 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     let destAccess = destination.startAccessingSecurityScopedResource()
     if !destAccess {
       logDebug("Warning: startAccessingSecurityScopedResource is false for \(destination) (destination); skipDestinationStartAccess=\(skipDestinationStartAccess)")
-      //            throw FilePickerError.invalidArguments(message: "Unable to access original url \(destination)")
+//            throw FilePickerError.invalidArguments(message: "Unable to access original url \(destination)")
     }
     let sourceAccess = sourceFile.startAccessingSecurityScopedResource()
     if !sourceAccess {
       logDebug("Warning: startAccessingSecurityScopedResource is false for \(sourceFile) (sourceFile)")
-      //            throw FilePickerError.readError(message: "Unable to access source file \(sourceFile)")
+//            throw FilePickerError.readError(message: "Unable to access source file \(sourceFile)")
     }
     defer {
       if destAccess {
@@ -299,7 +299,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
     _filePickerResult = result
     _filePickerPath = path
     let ctrl = UIDocumentPickerViewController(forOpeningContentTypes: [.folder])
-    //        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
+  //        let ctrl = UIDocumentPickerViewController(documentTypes: [kUTTypeFolder as String], in: UIDocumentPickerMode.open)
     ctrl.delegate = self
     ctrl.modalPresentationStyle = .currentContext
     try _viewController.present(ctrl, animated: true, completion: nil)
@@ -349,7 +349,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
       do {
         // This is the best, safest place to do the copy
         try FileManager.default.copyItem(at: url, to: tempFile)
-      } catch let error {
+      } catch {
         copyError = error
       }
     }
@@ -362,7 +362,7 @@ public class SwiftFilePickerWritablePlugin: NSObject, FlutterPlugin {
       // cached copy of the file
       do {
         try FileManager.default.copyItem(at: url, to: tempFile)
-      } catch let error {
+      } catch {
         copyError = error
       }
     }
@@ -457,9 +457,9 @@ extension SwiftFilePickerWritablePlugin: UIDocumentPickerDelegate {
           return
         }
         if isDirectory(url) {
-          _sendFilePickerResult(try _prepareDirUrlForReading(url: url))
+          try _sendFilePickerResult(_prepareDirUrlForReading(url: url))
         } else {
-          _sendFilePickerResult(try _prepareUrlForReading(url: url, persistable: true))
+          try _sendFilePickerResult(_prepareUrlForReading(url: url, persistable: true))
         }
       } catch {
         _sendFilePickerResult(FlutterError(code: "ErrorProcessingResult", message: "Error handling result url \(url): \(error)", details: nil))
@@ -533,10 +533,10 @@ extension SwiftFilePickerWritablePlugin: FlutterApplicationLifeCycleDelegate {
   // }
 
   private func _handle(url: URL, persistable: Bool) -> Bool {
-    //        if (!url.isFileURL) {
-    //            logDebug("url \(url) is not a file url. ignoring it for now.")
-    //            return false
-    //        }
+//        if (!url.isFileURL) {
+//            logDebug("url \(url) is not a file url. ignoring it for now.")
+//            return false
+//        }
     if !isInitialized {
       _initOpen = (url, persistable)
       return true
@@ -548,7 +548,7 @@ extension SwiftFilePickerWritablePlugin: FlutterApplicationLifeCycleDelegate {
   private func _handleUrl(url: URL, persistable: Bool) {
     do {
       if url.isFileURL {
-        _channel.invokeMethod("openFile", arguments: try _prepareUrlForReading(url: url, persistable: persistable)) { result in
+        try _channel.invokeMethod("openFile", arguments: _prepareUrlForReading(url: url, persistable: persistable)) { _ in
           guard !persistable else {
             // Persistable files don't need cleanup
             return
@@ -556,7 +556,7 @@ extension SwiftFilePickerWritablePlugin: FlutterApplicationLifeCycleDelegate {
           if self._isInboxFile(url) {
             do {
               try FileManager.default.removeItem(at: url)
-            } catch let error {
+            } catch {
               self.logError("Failed to delete inbox file \(url); error: \(error)")
             }
           } else {
@@ -566,12 +566,12 @@ extension SwiftFilePickerWritablePlugin: FlutterApplicationLifeCycleDelegate {
       } else {
         _channel.invokeMethod("handleUri", arguments: url.absoluteString)
       }
-    } catch let error {
+    } catch {
       logError("Error handling open url for \(url): \(error)")
       _channel.invokeMethod(
         "handleError",
         arguments: [
-          "message": "Error while handling openUrl for isFileURL=\(url.isFileURL): \(error)"
+          "message": "Error while handling openUrl for isFileURL=\(url.isFileURL): \(error)",
         ])
     }
   }
@@ -610,5 +610,4 @@ extension SwiftFilePickerWritablePlugin: FlutterStreamHandler {
       _eventQueue.append(event)
     }
   }
-
 }
