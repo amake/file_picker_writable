@@ -32,6 +32,7 @@
 .pub/
 
 build/
+.build/
+.swiftpm/
 
 /example/ios/Flutter/.last_build_id
-
