@@ -31,7 +31,7 @@ if (agpMajor < 9) {
 
 android {
     namespace "codeux.design.filepicker.file_picker_writable"
-    compileSdk 33
+    compileSdk 34
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
